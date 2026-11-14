@@ -1,58 +1,232 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# O'Clock — Watch E-Commerce Website
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+O'Clock merupakan aplikasi *e-commerce* berbasis web untuk penjualan jam tangan. Website ini dikembangkan menggunakan Laravel dan menyediakan fitur pengelolaan toko, katalog produk, keranjang belanja, pemesanan, pembayaran, serta pengelolaan pengiriman.
 
-## About Laravel
+O'Clock menggunakan konsep *single-vendor*, yaitu seluruh produk dikelola oleh satu pihak administrator. Tampilan website mengusung konsep minimalis dan elegan dengan kombinasi warna *broken white* dan *champagne gold*.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Teknologi yang Digunakan
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- PHP 8.3 atau lebih baru
+- Laravel 13
+- MySQL
+- Blade Template
+- Tailwind CSS
+- JavaScript
+- Vite
+- Composer
+- Node.js dan npm
+- Midtrans Snap Sandbox
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Fitur Aplikasi
 
-## Learning Laravel
+### Administrator
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Administrator bertugas mengelola operasional toko melalui halaman khusus Admin.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Fitur yang tersedia meliputi:
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+- Login dan pengelolaan akun administrator.
+- Dashboard statistik toko.
+- Pengelolaan kategori produk.
+- Pengelolaan produk, harga, stok, dan gambar.
+- Pengelolaan tarif pengiriman berdasarkan wilayah.
+- Melihat data pelanggan.
+- Melihat dan mengelola pesanan.
+- Memproses pesanan yang sudah dibayar.
+- Memasukkan informasi kurir dan nomor resi.
+- Memperbarui status pengiriman hingga pesanan selesai.
 
-## Agentic Development
+### Customer
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Customer dapat menggunakan website untuk berbelanja jam tangan secara daring.
+
+Fitur yang tersedia meliputi:
+
+- Registrasi dan login pelanggan.
+- Melihat katalog dan detail produk.
+- Pencarian, filter kategori, dan pengurutan produk.
+- Menambahkan produk ke keranjang.
+- Mengubah jumlah atau menghapus produk dari keranjang.
+- Checkout dan pengisian alamat pengiriman.
+- Perhitungan ongkos kirim.
+- Pembayaran melalui Midtrans Snap Sandbox.
+- Melihat riwayat dan status pesanan.
+- Melihat informasi kurir dan nomor resi.
+- Mencetak invoice pesanan yang sudah dibayar.
+- Melihat dan memperbarui profil pelanggan.
+
+## Instalasi Project
+
+### 1. Clone Repository
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/jenyferaprilino/oclock.git
+cd oclock
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Instal Dependensi PHP
 
-## Contributing
+```bash
+composer install
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 3. Instal Dependensi Frontend
 
-## Code of Conduct
+```bash
+npm install
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 4. Konfigurasi Environment
 
-## Security Vulnerabilities
+Salin file `.env.example` menjadi `.env`.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Pada PowerShell Windows:
 
-## License
+```powershell
+Copy-Item .env.example .env
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Kemudian sesuaikan konfigurasi aplikasi, database MySQL, dan Midtrans pada file `.env`.
+
+Contoh konfigurasi database:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=oclock_db
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+Buat database bernama `oclock_db` melalui MySQL sebelum menjalankan migrasi.
+
+Contoh variabel Midtrans:
+
+```env
+MIDTRANS_SERVER_KEY=
+MIDTRANS_CLIENT_KEY=
+MIDTRANS_IS_PRODUCTION=false
+MIDTRANS_CHECKOUT_ENABLED=true
+```
+
+Isi kunci Midtrans menggunakan kredensial Sandbox milik pengembang. Jangan menggunakan kredensial produksi untuk pengujian.
+
+File `.env` tidak boleh diunggah ke repository GitHub.
+
+### 5. Generate Application Key
+
+```bash
+php artisan key:generate
+```
+
+### 6. Jalankan Migrasi Database
+
+```bash
+php artisan migrate
+```
+
+Untuk instalasi baru dengan data contoh, jalankan:
+
+```bash
+php artisan db:seed
+```
+
+**Perhatian:** Seeder dapat membuat atau mengubah data contoh. Periksa isinya terlebih dahulu sebelum menjalankannya pada database yang sudah memiliki data penting.
+
+### 7. Buat Storage Link
+
+```bash
+php artisan storage:link
+```
+
+### 8. Jalankan Website
+
+Jalankan server Laravel:
+
+```bash
+php artisan serve
+```
+
+Pada terminal lain, jalankan Vite:
+
+```bash
+npm run dev
+```
+
+Buka website melalui browser:
+
+`http://127.0.0.1:8000`
+
+Alternatif untuk menyiapkan aset frontend:
+
+```bash
+npm run build
+```
+
+## Konfigurasi Pembayaran
+
+O'Clock menggunakan Midtrans Snap Sandbox sebagai lingkungan pengujian pembayaran.
+
+Alur pembayaran:
+
+1. Customer memilih produk dan melakukan checkout.
+2. Sistem membuat pesanan berdasarkan harga, stok, dan ongkos kirim.
+3. Customer diarahkan ke proses pembayaran Midtrans.
+4. Sistem memeriksa status transaksi.
+5. Setelah pembayaran terkonfirmasi, pesanan dapat diproses oleh Admin.
+
+Pembayaran Sandbox hanya digunakan untuk simulasi transaksi dan bukan pembayaran uang sungguhan.
+
+## Pengelolaan Pesanan
+
+Proses pengelolaan pesanan dilakukan oleh Admin setelah pembayaran berhasil.
+
+Alur utama:
+
+**Processing → Shipped → Completed**
+
+Informasi kurir dan nomor resi dapat dilihat pelanggan pada halaman riwayat pesanan.
+
+Nomor resi simulasi O'Clock menggunakan awalan `OC-` dan tidak terhubung langsung dengan sistem pelacakan ekspedisi.
+
+## Invoice
+
+Customer dapat membuka invoice untuk pesanan dengan status pembayaran berhasil.
+
+Invoice menampilkan informasi transaksi, penerima, alamat, produk, kuantitas, harga, ongkos kirim, total pembayaran, dan informasi pengiriman yang tersedia.
+
+Invoice dapat dicetak menggunakan fitur cetak browser atau disimpan sebagai PDF.
+
+## Pengujian
+
+Pengujian otomatis dilakukan menggunakan PHPUnit melalui Laravel.
+
+Jalankan:
+
+```bash
+php artisan test
+```
+
+Hasil pengujian terakhir pada lingkungan pengembangan:
+
+**99 tests passed — 659 assertions**
+
+Pengujian mencakup autentikasi, pengelolaan Admin, katalog, keranjang, checkout, pembayaran, pengiriman, dan akses invoice.
+
+## Keamanan
+
+- Autentikasi menggunakan sistem autentikasi Laravel.
+- Hak akses Admin dan Customer dipisahkan.
+- Akses invoice dibatasi berdasarkan pemilik pesanan dan status pembayaran.
+- Validasi diterapkan pada input aplikasi.
+- Status pembayaran diverifikasi melalui mekanisme integrasi Midtrans.
+- Konfigurasi rahasia disimpan dalam file `.env` yang tidak disertakan dalam Git.
+
+## Repository
+
+GitHub: https://github.com/jenyferaprilino/oclock
+
+**O'Clock — Watch E-Commerce Website**
+
+Project pengembangan aplikasi *e-commerce* jam tangan berbasis Laravel.
