@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Admin\CustomerController as AdminCustomerController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\OrderStatusController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\ShippingRateController as AdminShippingRateController;
 use App\Http\Controllers\Auth\AuthController;
@@ -61,11 +62,11 @@ Route::middleware(['auth', 'customer'])->prefix('customer')->name('customer.')->
     Route::post('/checkout/quote', [CheckoutController::class, 'quote'])->name('checkout.quote');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
     Route::get('/orders', [PaymentController::class, 'index'])->name('orders.index');
-        // Invoice page for a paid order (customer)
-        Route::get('/orders/{order}/invoice', [PaymentController::class, 'invoice'])->name('orders.invoice');
+    // Invoice page for a paid order (customer)
+    Route::get('/orders/{order}/invoice', [PaymentController::class, 'invoice'])->name('orders.invoice');
     Route::get('/orders/{order}/payment', [PaymentController::class, 'show'])->name('payment.show');
     Route::get('/orders/{order}/payment/status', [PaymentController::class, 'status'])->middleware('throttle:30,1')->name('payment.status');
-    Route::post('/orders/{order}/payment/refresh', [PaymentController::class, 'refresh'])->middleware('throttle:6,1')->name('payment.refresh');
+    Route::post('/orders/{order}/payment/refresh', [PaymentController::class, 'refresh'])->middleware('throttle:12,1')->name('payment.refresh');
 });
 
 // ─── Admin Protected Routes ──────────────────────────────────────────────────
@@ -95,5 +96,5 @@ Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function ()
     // Pesanan Pelanggan (Read-Only pada Tahap 3)
     Route::get('/orders', [AdminOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [AdminOrderController::class, 'show'])->name('orders.show');
-    Route::post('/orders/{order}/status', [\App\Http\Controllers\Admin\OrderStatusController::class, 'update'])->name('orders.status.update')->middleware('can:update,order');
+    Route::post('/orders/{order}/status', [OrderStatusController::class, 'update'])->name('orders.status.update')->middleware('can:update,order');
 });

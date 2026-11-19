@@ -53,9 +53,16 @@ class MidtransClient
         return ['snap_token' => $token, 'snap_redirect_url' => $url];
     }
 
-    public function status(Payment $payment): ?array
+    public function status(Payment $payment, ?string $transactionId = null): ?array
     {
-        $result = $this->request()->get('https://api.sandbox.midtrans.com/v2/'.rawurlencode($payment->midtrans_order_id).'/status');
+        $identifier = $transactionId ?: $payment->midtrans_transaction_id ?: $payment->midtrans_order_id;
+        $result = $this->request()->get('https://api.sandbox.midtrans.com/v2/'.rawurlencode($identifier).'/status');
+
+        if (($result->status() === 404 || ($result->successful() && (string) $result->json('status_code') === '404'))
+            && $identifier !== $payment->midtrans_order_id && filled($payment->midtrans_order_id)) {
+            $result = $this->request()->get('https://api.sandbox.midtrans.com/v2/'.rawurlencode($payment->midtrans_order_id).'/status');
+        }
+
         if ($result->status() === 404 || ($result->successful() && (string) $result->json('status_code') === '404')) {
             return null;
         }

@@ -331,6 +331,253 @@ class StageSixPaymentTest extends TestCase
         $this->assertSame(1, $this->product->fresh()->stock);
     }
 
+    public function test_webhook_validates_signature_using_signature_secret_key(): void
+    {
+        config(['midtrans.signature_key' => 'dedicated-signature-secret-key']);
+        $order = $this->prepareOrder();
+        $this->respond($order, 'settlement');
+
+        $amount = '410000.00';
+        $payload = [
+            'order_id' => $order->order_number,
+            'transaction_status' => 'settlement',
+            'gross_amount' => $amount,
+            'status_code' => '200',
+            'signature_key' => hash('sha512', $order->order_number.'200'.$amount.'dedicated-signature-secret-key'),
+        ];
+
+        $this->postJson(route('payments.midtrans.notification'), $payload)->assertOk();
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertSame('processing', $order->fresh()->order_status);
+    }
+
+    public function test_dana_bi_snap_payment_reconciliation_with_transaction_id_and_settlement(): void
+    {
+        $order = $this->prepareOrder();
+        $danaTxId = 'A120261119-DANA-BI-SNAP-UUID';
+
+        // Mock Midtrans Status API for DANA (where order_id matches transaction_id)
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/'.$danaTxId.'/status' => Http::response([
+                'status_code' => '200',
+                'order_id' => $danaTxId,
+                'transaction_id' => $danaTxId,
+                'gross_amount' => '410000.00',
+                'currency' => 'IDR',
+                'payment_type' => 'dana',
+                'transaction_status' => 'settlement',
+                'fraud_status' => 'accept',
+            ]),
+        ]);
+
+        $amount = '410000.00';
+        $payload = [
+            'order_id' => $order->order_number,
+            'transaction_id' => $danaTxId,
+            'payment_type' => 'dana',
+            'transaction_status' => 'settlement',
+            'gross_amount' => $amount,
+            'status_code' => '200',
+            'signature_key' => hash('sha512', $order->order_number.'200'.$amount.'sandbox-test-key'),
+        ];
+
+        $this->postJson(route('payments.midtrans.notification'), $payload)->assertOk();
+
+        $order->refresh();
+        $payment = $order->payments()->first();
+        $this->assertSame('paid', $order->payment_status);
+        $this->assertSame('processing', $order->order_status);
+        $this->assertSame('committed', $order->stock_reservation_status);
+        $this->assertSame('paid', $payment->internal_status);
+        $this->assertSame('settlement', $payment->transaction_status);
+        $this->assertSame($danaTxId, $payment->midtrans_transaction_id);
+        $this->assertSame('dana', $payment->payment_type);
+    }
+
+    public function test_manual_refresh_reconciles_and_redirects_back_with_flash_message(): void
+    {
+        $order = $this->prepareOrder();
+        $refreshUrl = route('customer.payment.refresh', $order);
+
+        // Guest redirect to login
+        $this->post($refreshUrl)->assertRedirect(route('login'));
+
+        // Other customer 404
+        $this->actingAs(User::factory()->create(['role' => 'customer']))
+            ->post($refreshUrl)->assertNotFound();
+
+        // Owner customer: pending status before payment
+        $this->actingAs($this->customer)
+            ->from(route('customer.payment.show', $order))
+            ->post($refreshUrl)
+            ->assertRedirect(route('customer.payment.show', $order))
+            ->assertSessionHas('info', 'Menunggu pembayaran terverifikasi.');
+
+        // Midtrans confirms settlement
+        $this->respond($order, 'settlement');
+
+        $this->actingAs($this->customer)
+            ->from(route('customer.payment.show', $order))
+            ->post($refreshUrl)
+            ->assertRedirect(route('customer.payment.show', $order))
+            ->assertSessionHas('info', 'Pembayaran terverifikasi.');
+
+        $order->refresh();
+        $this->assertSame('paid', $order->payment_status);
+        $this->assertSame('processing', $order->order_status);
+    }
+
+    public function test_virtual_account_webhook_and_status_reconciliation_is_idempotent(): void
+    {
+        $order = $this->prepareOrder();
+        $vaTxId = 'bca-va-transaction-uuid-999';
+
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/*' => Http::response([
+                'status_code' => '200',
+                'order_id' => $order->order_number,
+                'transaction_id' => $vaTxId,
+                'gross_amount' => '410000.00',
+                'currency' => 'IDR',
+                'payment_type' => 'bank_transfer',
+                'transaction_status' => 'settlement',
+                'fraud_status' => 'accept',
+            ]),
+        ]);
+
+        $amount = '410000.00';
+        $payload = [
+            'order_id' => $order->order_number,
+            'transaction_id' => $vaTxId,
+            'payment_type' => 'bank_transfer',
+            'transaction_status' => 'settlement',
+            'gross_amount' => $amount,
+            'status_code' => '200',
+            'signature_key' => hash('sha512', $order->order_number.'200'.$amount.'sandbox-test-key'),
+        ];
+
+        // First webhook invocation
+        $this->postJson(route('payments.midtrans.notification'), $payload)->assertOk();
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertSame(1, $this->product->fresh()->stock);
+
+        // Duplicate webhook retry
+        $this->postJson(route('payments.midtrans.notification'), $payload)->assertOk();
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertSame(1, $this->product->fresh()->stock);
+    }
+
+    public function test_webhook_with_mismatched_amount_does_not_mutate_or_store_transaction_id(): void
+    {
+        Http::fake();
+        $order = $this->prepareOrder();
+        $payment = $order->payments()->first();
+        $this->assertNull($payment->midtrans_transaction_id);
+
+        $wrongAmount = '999999.00';
+        $payload = [
+            'order_id' => $order->order_number,
+            'transaction_id' => 'unverified-tx-id-from-webhook',
+            'payment_type' => 'dana',
+            'transaction_status' => 'settlement',
+            'gross_amount' => $wrongAmount,
+            'status_code' => '200',
+            'signature_key' => hash('sha512', $order->order_number.'200'.$wrongAmount.'sandbox-test-key'),
+        ];
+
+        $this->postJson(route('payments.midtrans.notification'), $payload)->assertUnprocessable();
+
+        // Transaction ID must NOT be stored when amount mismatch occurs
+        $this->assertNull($payment->fresh()->midtrans_transaction_id);
+        $this->assertSame('pending', $order->fresh()->payment_status);
+        $this->assertSame('reserved', $order->fresh()->stock_reservation_status);
+        Http::assertNothingSent();
+    }
+
+    public function test_reconciliation_is_performed_once_per_webhook_request(): void
+    {
+        $order = $this->prepareOrder();
+        $txId = 'single-reconcile-tx-id';
+
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/'.$txId.'/status' => Http::response([
+                'status_code' => '200',
+                'order_id' => $order->order_number,
+                'transaction_id' => $txId,
+                'gross_amount' => '410000.00',
+                'currency' => 'IDR',
+                'payment_type' => 'qris',
+                'transaction_status' => 'settlement',
+                'fraud_status' => 'accept',
+            ]),
+        ]);
+
+        $amount = '410000.00';
+        $payload = [
+            'order_id' => $order->order_number,
+            'transaction_id' => $txId,
+            'payment_type' => 'qris',
+            'transaction_status' => 'settlement',
+            'gross_amount' => $amount,
+            'status_code' => '200',
+            'signature_key' => hash('sha512', $order->order_number.'200'.$amount.'sandbox-test-key'),
+        ];
+
+        $this->postJson(route('payments.midtrans.notification'), $payload)->assertOk();
+
+        // Ensure status API was queried exactly once
+        $statusCalls = Http::recorded(fn (Request $request) => str_contains($request->url(), '/status') && $request->method() === 'GET');
+        $this->assertCount(1, $statusCalls);
+        $this->assertSame('paid', $order->fresh()->payment_status);
+    }
+
+    public function test_different_transaction_id_from_stored_transaction_is_rejected(): void
+    {
+        $order = $this->prepareOrder();
+        $payment = $order->payments()->first();
+        $payment->update(['midtrans_transaction_id' => 'legitimate-stored-tx-id']);
+
+        $attackerTxId = 'tampered-or-different-tx-id';
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/'.$attackerTxId.'/status' => Http::response([
+                'status_code' => '200',
+                'order_id' => $order->order_number,
+                'transaction_id' => $attackerTxId,
+                'gross_amount' => '410000.00',
+                'currency' => 'IDR',
+                'payment_type' => 'qris',
+                'transaction_status' => 'settlement',
+                'fraud_status' => 'accept',
+            ]),
+        ]);
+
+        $amount = '410000.00';
+        $payload = [
+            'order_id' => $order->order_number,
+            'transaction_id' => $attackerTxId,
+            'payment_type' => 'qris',
+            'transaction_status' => 'settlement',
+            'gross_amount' => $amount,
+            'status_code' => '200',
+            'signature_key' => hash('sha512', $order->order_number.'200'.$amount.'sandbox-test-key'),
+        ];
+
+        // Should fail authoritative status verification (identity invalid)
+        $this->postJson(route('payments.midtrans.notification'), $payload)->assertServiceUnavailable();
+
+        // Stored transaction_id must NOT be overwritten
+        $this->assertSame('legitimate-stored-tx-id', $payment->fresh()->midtrans_transaction_id);
+        $this->assertSame('review', $order->fresh()->payment_status);
+    }
+
     private function prepareOrder(): Order
     {
         $order = app(CheckoutService::class)->reserve($this->customer, $this->checkout);

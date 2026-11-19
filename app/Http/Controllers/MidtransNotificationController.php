@@ -21,13 +21,20 @@ class MidtransNotificationController extends Controller
             'gross_amount' => ['required', 'string', 'max:30', 'regex:/^\d+(?:\.\d{2})?$/D'],
             'transaction_status' => 'required|string|max:80',
             'signature_key' => ['required', 'string', 'regex:/^[a-f0-9]{128}$/D'],
+            'transaction_id' => 'nullable|string|max:255',
+            'payment_type' => 'nullable|string|max:80',
+            'fraud_status' => 'nullable|string|max:80',
         ]);
 
-        $signature = hash('sha512', $data['order_id'].$data['status_code'].$data['gross_amount'].config('midtrans.server_key'));
-        abort_unless(hash_equals($signature, $data['signature_key']), 401);
+        $signatureKey = config('midtrans.signature_key') ?: config('midtrans.server_key');
+        $expectedSignature = hash('sha512', $data['order_id'].$data['status_code'].$data['gross_amount'].$signatureKey);
+        abort_unless(hash_equals($expectedSignature, $data['signature_key']), 401);
+
         $payment = Payment::where('midtrans_order_id', $data['order_id'])->first();
         $amountValid = $payment && $payments->amountMatches($data['gross_amount'], $payment->gross_amount);
-        $processed = $amountValid && $payments->reconcile($payment);
+
+        $transactionId = $data['transaction_id'] ?? null;
+        $processed = $amountValid && $payments->reconcile($payment, transactionId: $transactionId);
 
         PaymentNotification::create([
             'payment_id' => $payment?->id,

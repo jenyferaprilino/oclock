@@ -58,10 +58,10 @@ class PaymentService
         }
     }
 
-    public function reconcile(Payment $payment, bool $markUnknown = false): bool
+    public function reconcile(Payment $payment, bool $markUnknown = false, ?string $transactionId = null): bool
     {
         try {
-            $status = $this->midtrans->status($payment);
+            $status = $this->midtrans->status($payment, $transactionId);
         } catch (ConnectionException|RuntimeException) {
             $status = null;
         }
@@ -74,7 +74,7 @@ class PaymentService
             return false;
         }
 
-        return $this->apply($payment, $status);
+        return $this->apply($payment, $status, transactionIdHint: $transactionId);
     }
 
     public function amountMatches(mixed $amount, int $expected): bool
@@ -84,13 +84,16 @@ class PaymentService
             && (ltrim($parts[1], '0') ?: '0') === (string) $expected;
     }
 
-    private function apply(Payment $attempt, array $status, bool $unknown = false): bool
+    private function apply(Payment $attempt, array $status, bool $unknown = false, ?string $transactionIdHint = null): bool
     {
-        return DB::transaction(function () use ($attempt, $status, $unknown) {
+        return DB::transaction(function () use ($attempt, $status, $unknown, $transactionIdHint) {
             $order = Order::whereKey($attempt->order_id)->lockForUpdate()->firstOrFail();
             $payment = Payment::whereKey($attempt->id)->lockForUpdate()->firstOrFail();
             $transactionId = $status['transaction_id'] ?? null;
-            $identityValid = ($status['order_id'] ?? null) === $payment->midtrans_order_id
+            $orderIdMatches = ($status['order_id'] ?? null) === $payment->midtrans_order_id
+                || (($status['order_id'] ?? null) === $transactionId
+                    && ($payment->midtrans_transaction_id === $transactionId || ($transactionIdHint === $transactionId && in_array($status['payment_type'] ?? null, ['dana'], true))));
+            $identityValid = $orderIdMatches
                 && ($status['currency'] ?? 'IDR') === 'IDR'
                 && $payment->gross_amount === $order->total_amount
                 && $this->amountMatches($status['gross_amount'] ?? null, $order->total_amount)
